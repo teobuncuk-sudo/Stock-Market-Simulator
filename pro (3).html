@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Симулятор Біржі: Інвестор Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-indigo-500 selection:text-white">
+
+    <!-- MAIN MENU OVERLAY -->
+    <div id="mainMenu" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
+        <div class="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col gap-6">
+            
+            <!-- Game Account Bar -->
+            <div id="authProfileBar" class="flex items-center justify-between bg-slate-950/80 p-3 px-4 rounded-2xl border border-slate-800">
+                <div id="userInfoDisplay" class="flex items-center gap-3">
+                    <div id="userAvatar" class="w-10 h-10 rounded-full bg-indigo-600/30 text-indigo-400 border border-indigo-500/40 flex items-center justify-center text-lg font-bold overflow-hidden">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div class="text-xs">
+                        <div id="userName" class="font-bold text-slate-200">Гість</div>
+                        <div id="userAccountType" class="text-[10px] text-slate-500">Локальний акаунт</div>
+                    </div>
+                </div>
+                <div id="authActionContainer" class="flex items-center gap-2">
+                    <button onclick="openCreateAccountModal()" class="py-1.5 px-3 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 font-semibold text-xs rounded-xl transition flex items-center gap-2">
+                        <i class="fa-solid fa-user-plus text-indigo-400"></i> <span id="accountBtnText">Змінити/Створити Акаунт</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="text-center relative z-10">
+                <div class="inline-flex p-3 bg-gradient-to-tr from-indigo-600 to-emerald-500 rounded-2xl shadow-lg shadow-indigo-500/30 mb-3">
+                    <i class="fa-solid fa-chart-line text-3xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold text-white">Біржова Імперія Pro</h1>
+                <p class="text-sm text-slate-400 mt-1">Мета гри: Заробіть та придбайте <span class="text-emerald-400 font-bold">$10,000 USD</span> в Магазині Валют!</p>
+            </div>
+
+            <div id="worldsList" class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-60 overflow-y-auto custom-scrollbar p-1">
+                <!-- Dynamic worlds generated here -->
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button onclick="createSingleplayerWorld()" class="py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+                    <i class="fa-solid fa-user"></i> Одиночна гра
+                </button>
+                <button onclick="openMultiplayerModal()" class="py-3 px-4 bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20">
+                    <i class="fa-solid fa-users"></i> Створити онлайн кімнату
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button onclick="openJoinModal()" class="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20">
+                    <i class="fa-solid fa-globe"></i> Приєднатися через Інтернет
+                </button>
+                <label class="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm rounded-xl transition cursor-pointer flex items-center justify-center gap-2 border border-slate-700">
+                    <i class="fa-solid fa-file-import text-emerald-400"></i> Завантажити з файлу
+                    <input type="file" id="importWorldInput" accept=".json" onchange="importWorldFromFile(event)" class="hidden">
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE/SWITCH ACCOUNT MODAL -->
+    <div id="accountModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-md w-full shadow-2xl relative">
+            <h2 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-id-card text-indigo-400"></i> Ігровий Акаунт
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">Створіть свій ігровий профіль без додаткових реєстрацій.</p>
+
+            <div id="accountsListContainer" class="mb-4">
+                <label class="block text-slate-400 text-xs font-semibold mb-2">Наявні профілі:</label>
+                <div id="accountsList" class="space-y-2 max-h-36 overflow-y-auto custom-scrollbar pr-1"></div>
+            </div>
+
+            <div class="space-y-3 text-xs border-t border-slate-800 pt-4">
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1">Нікнейм гравця:</label>
+                    <input type="text" id="accountNameInput" placeholder="напр. Трейдер_PRO" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-indigo-500 font-medium">
+                </div>
+
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1">Пароль профілю:</label>
+                    <input type="password" id="accountPasswordInput" placeholder="Введіть пароль" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-indigo-500 font-medium">
+                </div>
+
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1">Оберіть аватар:</label>
+                    <div class="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-2" id="avatarSelector">
+                        <button onclick="selectAvatarIcon('😎')" class="avatar-option p-2 bg-slate-950 border border-indigo-500 rounded-xl text-xl">😎</button>
+                        <button onclick="selectAvatarIcon('🚀')" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-xl">🚀</button>
+                        <button onclick="selectAvatarIcon('💼')" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-xl">💼</button>
+                        <button onclick="selectAvatarIcon('🦁')" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-xl">🦁</button>
+                        <button onclick="selectAvatarIcon('👑')" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-xl">👑</button>
+                        <button onclick="selectAvatarIcon('📈')" class="avatar-option p-2 bg-slate-950 border border-slate-800 rounded-xl text-xl">📈</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeAccountModal()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl">Скасувати</button>
+                <button onclick="createNewAccount()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/20">Створити Новий</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MULTIPLAYER MODAL -->
+    <div id="multiplayerModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-md w-full shadow-2xl relative">
+            <h2 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-users text-purple-400"></i> Створення Парної Гри
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">Надішліть цей код другу, щоб він зміг приєднатися до вашої біржі!</p>
+
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1">Назва Сервера:</label>
+                    <input type="text" id="multiplayerWorldName" value="Спільна Біржа" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-purple-500 font-medium">
+                </div>
+
+                <div class="p-4 bg-purple-950/40 border border-purple-800/60 rounded-2xl text-center">
+                    <span class="text-[10px] uppercase font-bold text-purple-300 tracking-wider">Згенерований Код Кімнати</span>
+                    <div class="flex items-center justify-center gap-3 mt-1">
+                        <span id="generatedRoomCode" class="font-mono text-3xl font-black text-purple-400 tracking-widest">------</span>
+                        <button onclick="copyRoomCode()" class="p-2 bg-purple-800/50 hover:bg-purple-700/60 text-purple-200 rounded-xl transition" title="Скопіювати код">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeMultiplayerModal()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl">Скасувати</button>
+                <button onclick="confirmCreateMultiplayer()" class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-purple-600/20">Запустити та Грати</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JOIN SERVER MODAL -->
+    <div id="joinModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl max-w-md w-full shadow-2xl relative">
+            <h2 class="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-globe text-emerald-400"></i> Онлайн Підключення
+            </h2>
+            <p class="text-xs text-slate-400 mb-4">Введіть код кімнати вашого друга, щоб грати разом через Інтернет:</p>
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block text-slate-400 font-semibold mb-1">Код кімнати (6 цифр):</label>
+                    <input type="text" id="joinRoomCodeInput" maxlength="6" placeholder="напр. 849201" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-center font-mono text-lg uppercase tracking-widest text-emerald-400 focus:outline-none focus:border-emerald-500">
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeJoinModal()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl">Скасувати</button>
+                <button onclick="joinServerByCode()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20">Підключитися</button>
+            </div>
+        </div>
+    </div>
+
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div id="activeWorldAvatar" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl overflow-hidden">
+                    📈
+                </div>
+                <div>
+                    <h1 id="activeWorldTitle" class="text-lg font-bold text-white flex items-center gap-2">
+                        Світ: Завантаження...
+                    </h1>
+                    <div class="flex items-center gap-2">
+                        <span id="roomCodeDisplay" class="text-[11px] font-mono text-indigo-400 font-semibold bg-indigo-950/60 border border-indigo-800/60 px-2 py-0.5 rounded-md hidden">Код: -</span>
+                        <span id="currentAccountBadge" class="text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <i class="fa-solid fa-user-check text-[10px]"></i> <span id="headerAccountName">Трейдер</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="flex items-center gap-4 bg-slate-950/60 p-2 px-4 rounded-2xl border border-slate-800/80 shadow-inner">
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-400 font-medium">Готівка:</span>
+                    <span id="balanceDisplay" class="text-base sm:text-lg font-extrabold text-emerald-400">100.00 ₴</span>
+                </div>
+                <div class="h-8 w-px bg-slate-800"></div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-400 font-medium">Баланс USD:</span>
+                    <span id="usdBalanceDisplay" class="text-base sm:text-lg font-bold text-emerald-300">$ 0.00</span>
+                </div>
+                <div class="h-8 w-px bg-slate-800"></div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-400 font-medium">Депозит:</span>
+                    <span id="bankDisplay" class="text-base sm:text-lg font-bold text-blue-400">0.00 ₴</span>
+                </div>
+                <div class="h-8 w-px bg-slate-800"></div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-400 font-medium">Портфель:</span>
+                    <span id="portfolioValueDisplay" class="text-base sm:text-lg font-bold text-indigo-300">0.00 ₴</span>
+                </div>
+            </div>
+
+            <!-- Game Control Buttons -->
+            <div class="flex items-center space-x-2">
+                <span id="connectionStatusBadge" class="text-[10px] font-bold px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-slate-500 inline-block" id="statusDot"></span>
+                    <span id="statusText">Офлайн</span>
+                </span>
+                <button id="pauseBtn" onclick="togglePause()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition border border-slate-700 flex items-center gap-1.5">
+                    <i class="fa-solid fa-pause text-amber-400"></i> <span id="pauseText">Пауза</span>
+                </button>
+                <button onclick="exportWorldToFile()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold rounded-xl transition border border-slate-700 flex items-center gap-1.5" title="Експортувати світ">
+                    <i class="fa-solid fa-download"></i> Зберегти
+                </button>
+                <button onclick="exitToMainMenu()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl transition border border-slate-700 flex items-center gap-1.5">
+                    <i class="fa-solid fa-house"></i> Меню
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NEW GOAL BANNER -->
+    <section class="max-w-7xl mx-auto w-full px-4 pt-4">
+        <div class="bg-gradient-to-r from-slate-900 via-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-4 shadow-xl relative overflow-hidden">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative z-10">
+                <div class="flex items-center gap-3">
+                    <div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-2xl">
+                        <i class="fa-solid fa-dollar-sign"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-slate-100">Головна Ціль Перемоги</h2>
+                        <p class="text-xs text-slate-400">Купуйте та заробляйте гроші на акціях, щоб купити <span class="text-emerald-400 font-extrabold">$10,000 USD</span> у магазині валют!</p>
+                    </div>
+                </div>
+
+                <!-- Goal Progress Bar -->
+                <div class="w-full md:w-80 flex flex-col gap-1.5">
+                    <div class="flex justify-between items-center text-xs font-bold">
+                        <span class="text-slate-300">Прогрес USD:</span>
+                        <span id="usdGoalText" class="text-emerald-400">$ 0 / $ 10,000</span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-950 rounded-full border border-slate-800 overflow-hidden">
+                        <div id="usdGoalProgressBar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 w-0 transition-all duration-500"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MAIN DASHBOARD -->
+    <main class="max-w-7xl mx-auto w-full p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 my-auto">
+
+        <!-- Stock Market List Column -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col h-[620px]">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                    <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-globe text-indigo-400"></i> Ринок Акцій
+                    </h3>
+                    <input type="text" id="searchStock" oninput="renderStocksList()" placeholder="Пошук..." class="bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg text-xs text-white focus:outline-none w-32">
+                </div>
+
+                <div class="overflow-y-auto custom-scrollbar flex-1 space-y-2 pr-1" id="stocksList">
+                    <!-- Stock items rendered dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal & Currency Shop -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-3">
+                        <div id="selectedStockIcon" class="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl text-indigo-400">
+                            <i class="fa-solid fa-chart-simple"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h2 id="selectedStockName" class="text-xl font-bold text-white">Apple Inc.</h2>
+                                <span id="selectedStockSymbol" class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">AAPL</span>
+                            </div>
+                            <span id="selectedStockCategory" class="text-xs text-slate-400">Технологічний гігант</span>
+                        </div>
+                    </div>
+
+                    <div class="text-right">
+                        <div id="selectedStockPrice" class="text-2xl font-extrabold text-white">0.00 ₴</div>
+                        <div id="selectedStockChange" class="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1">
+                            +0.00%
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 bg-slate-950/60 p-2 rounded-xl border border-slate-800/80 mb-3 text-center">
+                    <div>
+                        <div class="text-[10px] text-slate-500 font-medium">Капіталізація</div>
+                        <div id="stockMarketCap" class="text-xs font-bold text-slate-300">-</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-500 font-medium">Волатильність</div>
+                        <div id="stockVolatility" class="text-xs font-bold text-amber-400">-</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-500 font-medium">Ваш середній курс</div>
+                        <div id="stockAvgBuy" class="text-xs font-bold text-indigo-300">0.00 ₴</div>
+                    </div>
+                </div>
+
+                <div class="relative w-full h-44 bg-slate-950/40 rounded-xl p-2 border border-slate-800/60 mb-3">
+                    <canvas id="stockChart"></canvas>
+                </div>
+
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 space-y-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-400 mb-1">Кількість:</label>
+                            <div class="flex items-center rounded-lg bg-slate-900 border border-slate-700 overflow-hidden">
+                                <button onclick="adjustTradeAmount(-1)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">-</button>
+                                <input type="number" id="tradeQuantity" value="1" min="1" max="100000" class="w-full bg-transparent text-center text-xs font-bold text-white focus:outline-none">
+                                <button onclick="adjustTradeAmount(1)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold">+</button>
+                            </div>
+                        </div>
+
+                        <div class="text-center sm:text-left">
+                            <div class="text-[10px] text-slate-400">Всього до сплати:</div>
+                            <div id="tradeTotalCost" class="text-sm font-bold text-indigo-300">0.00 ₴</div>
+                            <div id="userStockOwned" class="text-[10px] text-slate-400">В наявності: 0 шт</div>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <button onclick="executeTrade('buy')" class="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition active:scale-95 flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-cart-plus"></i> Купити
+                            </button>
+                            <button onclick="executeTrade('sell')" class="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-600/20 transition active:scale-95 flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-hand-holding-dollar"></i> Продати
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Currency Exchange Shop -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+                    <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center justify-between">
+                        <span><i class="fa-solid fa-coins text-amber-400 mr-1"></i> Обмін Валют (USD)</span>
+                        <span class="text-[10px] text-slate-400">Ціль: $10,000 USD</span>
+                    </h3>
+                    <div id="currencyExchangeContainer" class="space-y-2">
+                        <!-- Currency options rendered here -->
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <!-- Bank -->
+                    <div class="w-1/2 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col justify-between">
+                        <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                            <span><i class="fa-solid fa-vault text-blue-400 mr-1"></i> Фінансовий Банк</span>
+                            <span class="text-[10px] text-emerald-400">+0.5% / тик</span>
+                        </h3>
+                        <div class="text-[11px] text-slate-400 my-2">Депозити приносять пасивний дохід.</div>
+                        <div class="flex gap-2">
+                            <button onclick="bankDeposit(100)" class="flex-1 py-1.5 bg-blue-900/40 hover:bg-blue-800/60 border border-blue-700/50 text-blue-300 text-xs font-semibold rounded-lg">
+                                +100₴ Депозит
+                            </button>
+                            <button onclick="bankWithdraw(100)" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg">
+                                Забрати 100₴
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- News -->
+                    <div class="w-1/2 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-newspaper text-amber-400"></i> Стрічка Новин
+                            </h3>
+                        </div>
+                        <div id="newsFeed" class="space-y-1.5 h-20 overflow-y-auto custom-scrollbar text-xs">
+                            <div class="p-2 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-400 text-[11px]">
+                                Ласкаво просимо! Купуйте акції та обмінюйте гривні на долари USD в Магазині Валют.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CHAT BOX SECTION -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-comments"></i> Чат та Команда
+                        </h3>
+                        <span class="text-[10px] text-slate-500" id="chatOnlineCount">Онлайн: <span id="onlineCountNumber" class="text-emerald-400 font-bold">1</span></span>
+                    </div>
+
+                    <!-- PARTY MEMBERS & SKILLS PANEL -->
+                    <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-2.5">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                            <span><i class="fa-solid fa-users-gear text-indigo-400 mr-1"></i> Гравці в паті та скіли:</span>
+                        </div>
+                        <div id="partyMembersList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+                            <!-- Dynamic party members with skills rendered here -->
+                        </div>
+                    </div>
+                    
+                    <div id="chatMessages" class="h-28 overflow-y-auto custom-scrollbar bg-slate-950/60 border border-slate-800/80 rounded-xl p-2.5 space-y-2 text-xs">
+                        <div class="text-[11px] text-slate-500 italic text-center py-2">
+                            Ласкаво просимо в командний чат! Напишіть повідомлення своїм сокомандникам.
+                        </div>
+                    </div>
+
+                    <form onsubmit="sendChatMessage(event)" class="flex gap-2 mt-1">
+                        <input type="text" id="chatInput" placeholder="Введіть повідомлення..." autocomplete="off" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/20 transition flex items-center gap-1">
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- VICTORY MODAL -->
+    <div id="victoryModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-900 border border-emerald-500/50 p-8 rounded-3xl max-w-md w-full mx-4 shadow-2xl text-center relative overflow-hidden">
+            <div class="w-20 h-20 bg-gradient-to-tr from-emerald-500 to-teal-300 text-slate-950 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-lg shadow-emerald-500/30 animate-bounce">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="text-2xl font-black text-white mb-2">ВИ ПЕРЕМОГЛИ! 🚀</h2>
+            <p class="text-sm text-slate-300 mb-6">
+                Ви досягли мети та накопичили <span class="text-emerald-400 font-extrabold">$10,000 USD</span> у Магазині Валют!
+            </p>
+            <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-6 text-left space-y-2 text-xs">
+                <div class="flex justify-between font-bold text-sm text-emerald-400 border-t border-slate-800 pt-2">
+                    <span>Загальний Капітал:</span>
+                    <span id="finalNetWorth">0.00 ₴</span>
+                </div>
+            </div>
+            <button onclick="closeVictoryModal()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold rounded-xl shadow-lg transition">
+                Продовжити гру
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Global network configuration for WebRTC / PeerJS with fallback iceServers
+        const PEER_CONFIG = {
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
+                ]
+            }
+        };
+
+        // Game State & Constants Definition
+        let worlds = [];
+        let currentWorld = null;
+        let accounts = [];
+        let currentAccount = null;
+        let selectedStockId = 'aapl';
+        let stockChartInstance = null;
+        let isPaused = false;
+        let peer = null;
+        let hostConn = null;
+        let activeConnections = [];
+        let partyPlayers = [];
+        let isHost = false;
+        let currentGeneratedCode = null;
+        let selectedAvatar = '😎';
+        let localChannel = null;
+
+        const DEFAULT_CURRENCIES = {
+            USD: { name: 'Долар США', symbol: '$', rateUah: 41.50, owned: 0, icon: 'fa-dollar-sign', color: 'text-emerald-400' },
+            EUR: { name: 'Євро', symbol: '€', rateUah: 45.20, owned: 0, icon: 'fa-euro-sign', color: 'text-blue-400' },
+            GBP: { name: 'Фунт Стерлінгів', symbol: '£', rateUah: 52.80, owned: 0, icon: 'fa-sterling-sign', color: 'text-purple-400' },
+            USDT: { name: 'Crypto USDT', symbol: '₮', rateUah: 41.80, owned: 0, icon: 'fa-coins', color: 'text-amber-400' }
+        };
+
+        const DEFAULT_STOCKS = [
+            { id: 'aapl', name: 'Apple Inc.', symbol: 'AAPL', desc: 'Електроніка та Софт', price: 180.00, history: [180.00], owned: 0, buyPriceSum: 0, volatility: 0.03, icon: 'fa-brands fa-apple', color: 'text-slate-300' },
+            { id: 'tsla', name: 'Tesla Motors', symbol: 'TSLA', desc: 'Авто та Енергетика', price: 240.00, history: [240.00], owned: 0, buyPriceSum: 0, volatility: 0.08, icon: 'fa-solid fa-car', color: 'text-rose-400' },
+            { id: 'nvda', name: 'NVIDIA Corp.', symbol: 'NVDA', desc: 'Штучний Інтелект та Чипи', price: 450.00, history: [450.00], owned: 0, buyPriceSum: 0, volatility: 0.06, icon: 'fa-solid fa-microchip', color: 'text-emerald-400' },
+            { id: 'msft', name: 'Microsoft', symbol: 'MSFT', desc: 'Хмарні Сервіси', price: 330.00, history: [330.00], owned: 0, buyPriceSum: 0, volatility: 0.02, icon: 'fa-brands fa-microsoft', color: 'text-blue-400' },
+            { id: 'googl', name: 'Alphabet Google', symbol: 'GOOGL', desc: 'Пошук та AI', price: 135.00, history: [135.00], owned: 0, buyPriceSum: 0, volatility: 0.035, icon: 'fa-brands fa-google', color: 'text-amber-400' },
+            { id: 'amzn', name: 'Amazon Web', symbol: 'AMZN', desc: 'E-commerce та Хмара', price: 125.00, history: [125.00], owned: 0, buyPriceSum: 0, volatility: 0.04, icon: 'fa-brands fa-amazon', color: 'text-amber-500' },
+            { id: 'meta', name: 'Meta Platforms', symbol: 'META', desc: 'Соціальні Мережі', price: 290.00, history: [290.00], owned: 0, buyPriceSum: 0, volatility: 0.05, icon: 'fa-brands fa-meta', color: 'text-indigo-400' },
+            { id: 'amd', name: 'Advanced Micro', symbol: 'AMD', desc: 'Процесори та Графіка', price: 110.00, history: [110.00], owned: 0, buyPriceSum: 0, volatility: 0.07, icon: 'fa-solid fa-server', color: 'text-rose-500' },
+            { id: 'btc', name: 'Bitcoin Index', symbol: 'BTC', desc: 'Криптофонд', price: 1200.00, history: [1200.00], owned: 0, buyPriceSum: 0, volatility: 0.12, icon: 'fa-brands fa-bitcoin', color: 'text-yellow-400' }
+        ];
+
+        const NEWS_POOL = [
+            { target: 'aapl', impact: 0.08, text: 'Презентація нового iPhone викликала ажіотаж на ринку!' },
+            { target: 'tsla', impact: -0.10, text: 'Затримка поставок нових електромобілів засмутили інвесторів.' },
+            { target: 'nvda', impact: 0.12, text: 'Продажі нових AI-чипів перевищили всі очікування!' },
+            { target: 'msft', impact: 0.05, text: 'Рекордні прибутки хмарного підрозділу Azure.' },
+            { target: 'googl', impact: 0.07, text: 'Google анонсував революційне оновлення штучного інтелекту!' },
+            { target: 'amzn', impact: 0.06, text: 'Рекордні продажі під час глобального розпродажу Amazon!' },
+            { target: 'btc', impact: 0.18, text: 'Криптофонд оголосив про масштабне залучення інвестицій!' },
+            { target: 'amd', impact: -0.07, text: 'Тимчасовий дефіцит напівпровідників знизив продажі AMD.' }
+        ];
+
+        function loadAccounts() {
+            try {
+                const savedAccounts = localStorage.getItem('investor_pro_accounts');
+                accounts = savedAccounts ? JSON.parse(savedAccounts) : [];
+            } catch (e) {
+                accounts = [];
+            }
+
+            if (accounts.length === 0) {
+                currentAccount = { name: 'Трейдер_PRO', avatar: '😎' };
+                accounts.push(currentAccount);
+                saveAccountsToStorage();
+            } else {
+                currentAccount = accounts[0];
+            }
+            updateAccountUI();
+        }
+
+        function saveAccountsToStorage() {
+            try {
+                localStorage.setItem('investor_pro_accounts', JSON.stringify(accounts));
+            } catch (e) {}
+        }
+
+        function updateAccountUI() {
+            if (!currentAccount) return;
+            const userNameEl = document.getElementById('userName');
+            const userAvatarEl = document.getElementById('userAvatar');
+            const headerAccountName = document.getElementById('headerAccountName');
+            
+            if (userNameEl) userNameEl.innerText = currentAccount.name;
+            if (userAvatarEl) userAvatarEl.innerHTML = currentAccount.avatar || '😎';
+            if (headerAccountName) headerAccountName.innerText = currentAccount.name;
+        }
+
+        function loadSavedWorlds() {
+            try {
+                const saved = localStorage.getItem('investor_pro_worlds');
+                worlds = saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                worlds = [];
+            }
+            renderWorldsList();
+        }
+
+        function saveWorldsToStorage() {
+            try {
+                localStorage.setItem('investor_pro_worlds', JSON.stringify(worlds));
+            } catch (e) {}
+        }
+
+        function openCreateAccountModal() {
+            renderAccountsList();
+            document.getElementById('accountModal').classList.remove('hidden');
+        }
+
+        function closeAccountModal() {
+            document.getElementById('accountModal').classList.add('hidden');
+        }
+
+        function selectAvatarIcon(emoji) {
+            selectedAvatar = emoji;
+            document.querySelectorAll('.avatar-option').forEach(btn => {
+                btn.classList.remove('border-indigo-500');
+                btn.classList.add('border-slate-800');
+            });
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('border-indigo-500');
+            }
+        }
+
+        function createNewAccount() {
+            const nameInput = document.getElementById('accountNameInput').value.trim();
+            if (!nameInput) {
+                showToast("Введіть нікнейм гравця!", "error");
+                return;
+            }
+
+            const newAcc = { name: nameInput, avatar: selectedAvatar };
+            accounts.push(newAcc);
+            currentAccount = newAcc;
+            saveAccountsToStorage();
+            updateAccountUI();
+            closeAccountModal();
+            showToast(`Акаунт ${nameInput} успішно створено!`, "success");
+        }
+
+        function renderAccountsList() {
+            const container = document.getElementById('accountsList');
+            if (!container) return;
+            container.innerHTML = '';
+
+            accounts.forEach((acc, idx) => {
+                const item = document.createElement('div');
+                item.className = `p-2 rounded-xl border flex items-center justify-between cursor-pointer text-xs ${
+                    currentAccount && currentAccount.name === acc.name 
+                        ? 'bg-indigo-950/60 border-indigo-500 text-white' 
+                        : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                }`;
+                item.onclick = () => {
+                    currentAccount = acc;
+                    updateAccountUI();
+                    renderAccountsList();
+                    showToast(`Обрано профіль: ${acc.name}`, "info");
+                };
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">${acc.avatar || '😎'}</span>
+                        <span class="font-bold">${acc.name}</span>
+                    </div>
+                    ${currentAccount && currentAccount.name === acc.name ? '<span class="text-[10px] bg-indigo-600 text-white px-2 py-0.5 rounded-md font-bold">Активний</span>' : ''}
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function openMultiplayerModal() {
+            currentGeneratedCode = Math.floor(100000 + Math.random() * 900000).toString();
+            document.getElementById('generatedRoomCode').innerText = currentGeneratedCode;
+            document.getElementById('multiplayerModal').classList.remove('hidden');
+        }
+
+        function openJoinModal() {
+            document.getElementById('joinModal').classList.remove('hidden');
+        }
+
+        function sendMyPlayerInfo(conn) {
+            const info = {
+                type: 'PLAYER_INFO',
+                name: currentAccount ? currentAccount.name : 'Гравець',
+                avatar: currentAccount ? currentAccount.avatar : '😎',
+                balance: currentWorld ? currentWorld.balance : 0
+            };
+            if (conn && conn.open) conn.send(info);
+            else if (localChannel) localChannel.postMessage(info);
+        }
+
+        function broadcastPlayerInfo() {
+            sendMyPlayerInfo(null);
+            activeConnections.forEach(conn => sendMyPlayerInfo(conn));
+        }
+
+        function handleIncomingNetworkData(data, conn) {
+            if (!data || !data.type) return;
+
+            if (data.type === 'CHAT_MESSAGE') {
+                appendChatMessage(data.sender, data.avatar, data.text, false);
+            } else if (data.type === 'TICK_UPDATE') {
+                if (!isHost && currentWorld) {
+                    currentWorld.stocks = data.stocks;
+                    if (data.currencies) currentWorld.currencies = data.currencies;
+                    renderStocksList();
+                    updateSelectedStockView();
+                    renderCurrencyExchange();
+                    updateFinancialSummary();
+                }
+            } else if (data.type === 'PLAYER_INFO') {
+                const existing = partyPlayers.find(p => p.name === data.name);
+                if (existing) {
+                    existing.balance = data.balance;
+                    existing.avatar = data.avatar;
+                } else {
+                    partyPlayers.push({ name: data.name, avatar: data.avatar, balance: data.balance, connId: conn ? conn.peer : 'local' });
+                }
+                updatePartyMembersUI();
+            } else if (data.type === 'SYNC_WORLD') {
+                if (currentWorld) {
+                    currentWorld.stocks = data.stocks;
+                    currentWorld.currencies = data.currencies;
+                    renderStocksList();
+                    updateSelectedStockView();
+                    renderCurrencyExchange();
+                    updateFinancialSummary();
+                }
+            }
+        }
+
+        function updatePartyMembersUI() {
+            const container = document.getElementById('partyMembersList');
+            const countEl = document.getElementById('onlineCountNumber');
+            if (!container) return;
+
+            // Maintain self + network players
+            const allPlayers = [
+                { name: currentAccount ? currentAccount.name : 'Гравець', avatar: currentAccount ? currentAccount.avatar : '😎', isMe: true }
+            ];
+
+            partyPlayers.forEach(p => {
+                if (p.name !== (currentAccount ? currentAccount.name : 'Гравець')) {
+                    allPlayers.push(p);
+                }
+            });
+
+            if (countEl) countEl.innerText = allPlayers.length;
+
+            container.innerHTML = '';
+            allPlayers.forEach(p => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 border border-slate-800 rounded-xl p-2 flex items-center justify-between text-xs";
+                card.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">${p.avatar}</span>
+                        <div>
+                            <div class="font-bold text-white flex items-center gap-1">
+                                ${p.name}
+                                ${p.isMe ? '<span class="text-[9px] text-indigo-400 bg-indigo-950 px-1 rounded border border-indigo-800">Ви</span>' : ''}
+                            </div>
+                            <div class="text-[10px] text-emerald-400 font-semibold">Активний трейдер</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function connectToLocalBroadcastServer(roomCode) {
+            try {
+                if (localChannel) {
+                    localChannel.close();
+                }
+                localChannel = new BroadcastChannel('investor_pro_room_' + roomCode);
+                localChannel.onmessage = (event) => {
+                    handleIncomingNetworkData(event.data, null);
+                };
+                updateConnectionStatus('online', 'Кімната готова (Локальний канал)');
+                sendMyPlayerInfo(null);
+            } catch (err) {
+                console.warn("BroadcastChannel support missing or limited:", err);
+            }
+        }
+
+        function initHostPeerServer(roomCode) {
+            isHost = true;
+            updateConnectionStatus('connecting', 'Підготовка кімнати...');
+            
+            connectToLocalBroadcastServer(roomCode);
+
+            if (typeof Peer === 'undefined') {
+                updateConnectionStatus('online', 'Кімната готова!');
+                return;
+            }
+
+            if (peer) {
+                try { peer.destroy(); } catch(e){}
+            }
+            
+            const peerId = 'investor-pro-room-' + roomCode;
+            try {
+                peer = new Peer(peerId, { ...PEER_CONFIG, debug: 0 });
+
+                peer.on('open', (id) => {
+                    updateConnectionStatus('online', 'Кімната активна!');
+                    showToast(`Кімнату створено! Код: ${roomCode}.`, "success");
+                    broadcastPlayerInfo();
+                });
+
+                peer.on('connection', (conn) => {
+                    activeConnections.push(conn);
+                    showToast("Гравець приєднався!", "success");
+                    updateConnectionStatus('online', `Гравців у кімнаті: ${activeConnections.length + 1}`);
+
+                    conn.on('open', () => {
+                        conn.send({
+                            type: 'SYNC_WORLD',
+                            stocks: currentWorld.stocks,
+                            currencies: currentWorld.currencies,
+                            name: currentWorld.name
+                        });
+                        broadcastPlayerInfo();
+                    });
+
+                    conn.on('data', (data) => handleIncomingNetworkData(data, conn));
+
+                    conn.on('close', () => {
+                        activeConnections = activeConnections.filter(c => c !== conn);
+                        partyPlayers = partyPlayers.filter(p => p.connId !== conn.peer);
+                        updateConnectionStatus('online', `Гравців: ${activeConnections.length + 1}`);
+                        updatePartyMembersUI();
+                        showToast("Гравець відключився", "info");
+                    });
+
+                    conn.on('error', () => {});
+                });
+
+                peer.on('error', (err) => {
+                    console.warn("Peer server error, falling back to local channel:", err);
+                    updateConnectionStatus('online', 'Кімната готова (Канал Canvas)');
+                });
+            } catch (err) {
+                updateConnectionStatus('online', 'Кімната готова (Канал Canvas)');
+            }
+        }
+
+        function connectToHostPeerServer(roomCode) {
+            isHost = false;
+            updateConnectionStatus('connecting', 'Підключення...');
+
+            connectToLocalBroadcastServer(roomCode);
+
+            if (typeof Peer === 'undefined') return;
+
+            if (peer) {
+                try { peer.destroy(); } catch(e){}
+            }
+
+            try {
+                peer = new Peer({ ...PEER_CONFIG, debug: 0 });
+
+                peer.on('open', () => {
+                    const targetHostId = 'investor-pro-room-' + roomCode;
+                    hostConn = peer.connect(targetHostId, { reliable: true });
+
+                    hostConn.on('open', () => {
+                        updateConnectionStatus('online', 'Підключено!');
+                        showToast("Успішно підключено!", "success");
+                        sendMyPlayerInfo(hostConn);
+                    });
+
+                    hostConn.on('data', (data) => handleIncomingNetworkData(data, hostConn));
+
+                    hostConn.on('close', () => {
+                        updateConnectionStatus('offline', 'Відключено');
+                    });
+
+                    hostConn.on('error', () => {
+                        updateConnectionStatus('online', 'Підключено (Canvas)');
+                    });
+                });
+
+                peer.on('error', () => {
+                    updateConnectionStatus('online', 'Підключено (Canvas)');
+                });
+            } catch (err) {
+                updateConnectionStatus('online', 'Підключено (Canvas)');
+            }
+        }
+
+        function launchWorld(id) {
+            currentWorld = worlds.find(w => w.id === id);
+            if (!currentWorld) return;
+
+            // Merge any newly added default currencies/stocks dynamically
+            if (!currentWorld.currencies) {
+                currentWorld.currencies = JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
+            } else {
+                Object.keys(DEFAULT_CURRENCIES).forEach(code => {
+                    if (!currentWorld.currencies[code]) {
+                        currentWorld.currencies[code] = { ...DEFAULT_CURRENCIES[code] };
+                    }
+                });
+            }
+
+            DEFAULT_STOCKS.forEach(defStock => {
+                const existing = currentWorld.stocks.find(s => s.id === defStock.id);
+                if (!existing) {
+                    currentWorld.stocks.push(JSON.parse(JSON.stringify(defStock)));
+                }
+            });
+
+            document.getElementById('activeWorldTitle').innerText = currentWorld.name;
+            const avatarEl = document.getElementById('activeWorldAvatar');
+            const isImg = currentWorld.icon && (currentWorld.icon.startsWith('http://') || currentWorld.icon.startsWith('https://') || currentWorld.icon.startsWith('data:image'));
+            avatarEl.innerHTML = isImg 
+                ? `<img src="${currentWorld.icon}" class="w-full h-full object-cover">`
+                : currentWorld.icon || '📈';
+
+            const roomBadge = document.getElementById('roomCodeDisplay');
+            if (currentWorld.roomCode) {
+                roomBadge.innerText = `Код: ${currentWorld.roomCode}`;
+                roomBadge.classList.remove('hidden');
+
+                if (!peer) {
+                    initHostPeerServer(currentWorld.roomCode);
+                }
+            } else {
+                roomBadge.classList.add('hidden');
+                updateConnectionStatus('offline', 'Одиночна гра');
+                if (peer) {
+                    peer.destroy();
+                    peer = null;
+                }
+            }
+
+            document.getElementById('mainMenu').classList.add('hidden');
+            
+            renderStocksList();
+            updateSelectedStockView();
+            renderCurrencyExchange();
+            updateFinancialSummary();
+            updatePartyMembersUI();
+        }
+
+        function sendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const sender = currentAccount ? currentAccount.name : 'Гравець';
+            const avatar = currentAccount ? currentAccount.avatar : '😎';
+
+            // Render message locally
+            appendChatMessage(sender, avatar, text, true);
+
+            // Broadcast message via PeerJS / BroadcastChannel
+            const msgData = {
+                type: 'CHAT_MESSAGE',
+                sender: sender,
+                avatar: avatar,
+                text: text
+            };
+
+            if (isHost) {
+                broadcastToClients(msgData);
+            } else if (hostConn) {
+                hostConn.send(msgData);
+            } else if (localChannel) {
+                localChannel.postMessage(msgData);
+            }
+
+            input.value = '';
+        }
+
+        function broadcastToClients(data) {
+            activeConnections.forEach(conn => {
+                if (conn.open) conn.send(data);
+            });
+            if (localChannel) {
+                localChannel.postMessage(data);
+            }
+        }
+
+        function appendChatMessage(sender, avatar, text, isMe) {
+            const container = document.getElementById('chatMessages');
+            if (!container) return;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+
+            msgDiv.innerHTML = `
+                <div class="flex items-center gap-1.5 mb-0.5 text-[10px] text-slate-400">
+                    <span>${avatar}</span>
+                    <span class="font-bold text-slate-300">${sender}</span>
+                </div>
+                <div class="max-w-[80%] px-3 py-1.5 rounded-2xl text-xs ${
+                    isMe 
+                        ? 'bg-indigo-600 text-white rounded-tr-none' 
+                        : 'bg-slate-800 text-slate-200 border border-slate-700 rounded-tl-none'
+                }">
+                    ${escapeHtml(text)}
+                </div>
+            `;
+
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        function updateConnectionStatus(state, message) {
+            const dot = document.getElementById('statusDot');
+            const txt = document.getElementById('statusText');
+            if (!dot || !txt) return;
+
+            if (state === 'online') {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse";
+                txt.innerText = message || "Онлайн";
+                txt.className = "text-emerald-400 font-semibold";
+            } else if (state === 'connecting') {
+                dot.className = "w-2 h-2 rounded-full bg-amber-500 inline-block animate-ping";
+                txt.innerText = message || "З'єднання...";
+                txt.className = "text-amber-400 font-semibold";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-slate-500 inline-block";
+                txt.innerText = message || "Офлайн";
+                txt.className = "text-slate-400 font-semibold";
+            }
+        }
+
+        function renderWorldsList() {
+            const container = document.getElementById('worldsList');
+            container.innerHTML = '';
+
+            if (worlds.length === 0) {
+                container.innerHTML = `<div class="col-span-2 text-center text-slate-500 py-8 text-xs font-semibold">У вас ще немає створених світів.<br>Натисніть "Одиночна гра" або "Створити парну гру".</div>`;
+                return;
+            }
+
+            worlds.forEach(w => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-950/80 border border-slate-800 hover:border-indigo-500/60 p-3.5 rounded-2xl flex items-center justify-between cursor-pointer transition";
+                
+                const isImg = w.icon && (w.icon.startsWith('http://') || w.icon.startsWith('https://') || w.icon.startsWith('data:image'));
+                const iconContent = isImg 
+                    ? `<img src="${w.icon}" class="w-full h-full object-cover rounded-xl" onerror="this.src='https://placehold.co/40x40/334155/fff?text=W'">`
+                    : `<span class="text-xl">${w.icon || '📈'}</span>`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3" onclick="launchWorld('${w.id}')">
+                        <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center overflow-hidden">
+                            ${iconContent}
+                        </div>
+                        <div>
+                            <div class="font-bold text-sm text-slate-100 flex items-center gap-1.5">
+                                ${w.name}
+                                ${w.roomCode ? `<span class="bg-purple-950 text-purple-400 border border-purple-800 text-[9px] px-1.5 py-0.2 rounded font-mono">КОД: ${w.roomCode}</span>` : ''}
+                            </div>
+                            <div class="text-[11px] text-slate-400">Готівка: <span class="text-emerald-400 font-semibold">${w.balance.toFixed(2)} ₴</span> | USD: <span class="text-emerald-300 font-bold">$${(w.currencies?.USD?.owned || 0).toFixed(0)}</span></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="deleteWorld('${w.id}', event)" class="p-2 text-slate-500 hover:text-rose-400 transition" title="Видалити">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function createSingleplayerWorld() {
+            const ownerName = currentAccount ? currentAccount.name : 'Гравець';
+            const newWorld = {
+                id: 'world_' + Date.now(),
+                name: `Біржа (${ownerName})`,
+                icon: currentAccount ? currentAccount.avatar : '👤',
+                balance: 1000.00,
+                bankDeposit: 0.00,
+                stocks: JSON.parse(JSON.stringify(DEFAULT_STOCKS)),
+                currencies: JSON.parse(JSON.stringify(DEFAULT_CURRENCIES)),
+                hasWon: false,
+                roomCode: null
+            };
+
+            worlds.push(newWorld);
+            saveWorldsToStorage();
+            renderWorldsList();
+            launchWorld(newWorld.id);
+            showToast("Створено одиночну гру!", "success");
+        }
+
+        function closeMultiplayerModal() { document.getElementById('multiplayerModal').classList.add('hidden'); }
+
+        function copyRoomCode() {
+            if (!currentGeneratedCode) return;
+            const tempInput = document.createElement('input');
+            tempInput.value = currentGeneratedCode;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`Код ${currentGeneratedCode} скопійовано!`, "info");
+        }
+
+        function confirmCreateMultiplayer() {
+            const nameInput = document.getElementById('multiplayerWorldName').value.trim() || 'Спільна Біржа';
+            const roomCode = currentGeneratedCode;
+
+            const newWorld = {
+                id: 'world_' + Date.now(),
+                name: nameInput,
+                icon: '🌐',
+                balance: 1000.00,
+                bankDeposit: 0.00,
+                stocks: JSON.parse(JSON.stringify(DEFAULT_STOCKS)),
+                currencies: JSON.parse(JSON.stringify(DEFAULT_CURRENCIES)),
+                hasWon: false,
+                roomCode: roomCode
+            };
+
+            worlds.push(newWorld);
+            saveWorldsToStorage();
+
+            closeMultiplayerModal();
+            renderWorldsList();
+            launchWorld(newWorld.id);
+
+            initHostPeerServer(roomCode);
+        }
+
+        function closeJoinModal() { document.getElementById('joinModal').classList.add('hidden'); }
+
+        function joinServerByCode() {
+            const code = document.getElementById('joinRoomCodeInput').value.trim();
+            if (!code || code.length !== 6) {
+                showToast("Введіть коректний 6-значний код!", "error");
+                return;
+            }
+
+            const newWorld = {
+                id: 'world_' + Date.now(),
+                name: 'Онлайн Кімната (' + code + ')',
+                icon: '🌐',
+                balance: 1000.00,
+                bankDeposit: 0.00,
+                stocks: JSON.parse(JSON.stringify(DEFAULT_STOCKS)),
+                currencies: JSON.parse(JSON.stringify(DEFAULT_CURRENCIES)),
+                hasWon: false,
+                roomCode: code
+            };
+
+            worlds.push(newWorld);
+            saveWorldsToStorage();
+            closeJoinModal();
+            renderWorldsList();
+            launchWorld(newWorld.id);
+
+            connectToHostPeerServer(code);
+        }
+
+        function deleteWorld(id, e) {
+            e.stopPropagation();
+            worlds = worlds.filter(w => w.id !== id);
+            saveWorldsToStorage();
+            renderWorldsList();
+        }
+
+        function launchWorld(id) {
+            currentWorld = worlds.find(w => w.id === id);
+            if (!currentWorld) return;
+
+            if (!currentWorld.currencies) {
+                currentWorld.currencies = JSON.parse(JSON.stringify(DEFAULT_CURRENCIES));
+            }
+
+            document.getElementById('activeWorldTitle').innerText = currentWorld.name;
+            const avatarEl = document.getElementById('activeWorldAvatar');
+            const isImg = currentWorld.icon && (currentWorld.icon.startsWith('http://') || currentWorld.icon.startsWith('https://') || currentWorld.icon.startsWith('data:image'));
+            avatarEl.innerHTML = isImg 
+                ? `<img src="${currentWorld.icon}" class="w-full h-full object-cover">`
+                : currentWorld.icon || '📈';
+
+            const roomBadge = document.getElementById('roomCodeDisplay');
+            if (currentWorld.roomCode) {
+                roomBadge.innerText = `Код: ${currentWorld.roomCode}`;
+                roomBadge.classList.remove('hidden');
+
+                if (!peer) {
+                    initHostPeerServer(currentWorld.roomCode);
+                }
+            } else {
+                roomBadge.classList.add('hidden');
+                updateConnectionStatus('offline', 'Одиночна гра');
+                if (peer) {
+                    peer.destroy();
+                    peer = null;
+                }
+            }
+
+            document.getElementById('mainMenu').classList.add('hidden');
+            
+            renderStocksList();
+            updateSelectedStockView();
+            renderCurrencyExchange();
+            updateFinancialSummary();
+        }
+
+        function exitToMainMenu() {
+            saveWorldsToStorage();
+            if (peer) {
+                peer.destroy();
+                peer = null;
+            }
+            updateConnectionStatus('offline', 'Офлайн');
+            document.getElementById('mainMenu').classList.remove('hidden');
+            renderWorldsList();
+        }
+
+        function exportWorldToFile() {
+            if (!currentWorld) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentWorld, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `world_${currentWorld.name.replace(/\s+/g, '_')}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+            showToast("Світ збережено в файл!", "success");
+        }
+
+        function importWorldFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported && imported.name && imported.stocks) {
+                        imported.id = 'world_' + Date.now();
+                        worlds.push(imported);
+                        saveWorldsToStorage();
+                        renderWorldsList();
+                        showToast("Світ успішно імпортовано!", "success");
+                    } else {
+                        showToast("Некоректний файл світу!", "error");
+                    }
+                } catch (err) {
+                    showToast("Помилка читання файлу!", "error");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function renderCurrencyExchange() {
+            if (!currentWorld || !currentWorld.currencies) return;
+            const container = document.getElementById('currencyExchangeContainer');
+            container.innerHTML = '';
+
+            Object.keys(currentWorld.currencies).forEach(code => {
+                const curr = currentWorld.currencies[code];
+                const card = document.createElement('div');
+                card.className = "p-2 bg-slate-950/80 border border-slate-800 rounded-xl flex items-center justify-between";
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-bold ${curr.color}">
+                            <i class="fa-solid ${curr.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs text-white">${curr.name} (${code})</div>
+                            <div class="text-[10px] text-slate-400">1 ${code} = <span class="font-bold text-emerald-400">${curr.rateUah.toFixed(2)} ₴</span></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="text-right mr-1">
+                            <div class="text-[10px] text-slate-400">Куплено:</div>
+                            <div class="font-bold text-emerald-300 text-xs">${curr.symbol} ${(curr.owned || 0).toFixed(2)}</div>
+                        </div>
+                        <button onclick="buyCurrency('${code}', 100)" class="px-2 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] rounded-lg transition" title="Купити на 100 одиниць">
+                            +100 ${curr.symbol}
+                        </button>
+                        <button onclick="sellCurrency('${code}', 100)" class="px-2 py-1 bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/40 text-rose-300 font-bold text-[10px] rounded-lg transition" title="Продати 100 одиниць">
+                            -100 ${curr.symbol}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function buyCurrency(code, amount) {
+            if (!currentWorld || !currentWorld.currencies[code]) return;
+            const curr = currentWorld.currencies[code];
+            const costUah = amount * curr.rateUah;
+
+            if (currentWorld.balance >= costUah) {
+                currentWorld.balance -= costUah;
+                curr.owned = (curr.owned || 0) + amount;
+                showToast(`Придбано ${curr.symbol}${amount} ${code}!`, "success");
+                updateFinancialSummary();
+                renderCurrencyExchange();
+            } else {
+                showToast(`Недостатньо гривень! Потрібно ${costUah.toFixed(2)} ₴`, "error");
+            }
+        }
+
+        function sellCurrency(code, amount) {
+            if (!currentWorld || !currentWorld.currencies[code]) return;
+            const curr = currentWorld.currencies[code];
+
+            if ((curr.owned || 0) >= amount) {
+                const revenueUah = amount * curr.rateUah;
+                currentWorld.balance += revenueUah;
+                curr.owned -= amount;
+                showToast(`Продано ${curr.symbol}${amount} ${code}!`, "info");
+                updateFinancialSummary();
+                renderCurrencyExchange();
+            } else {
+                showToast(`Недостатньо ${code} для продажу!`, "error");
+            }
+        }
+
+        function renderStocksList() {
+            if (!currentWorld) return;
+            const container = document.getElementById('stocksList');
+            const search = document.getElementById('searchStock').value.toLowerCase();
+            container.innerHTML = '';
+
+            currentWorld.stocks.filter(s => s.name.toLowerCase().includes(search) || s.symbol.toLowerCase().includes(search)).forEach(stock => {
+                const prevPrice = stock.history.length > 1 ? stock.history[stock.history.length - 2] : stock.price;
+                const change = ((stock.price - prevPrice) / prevPrice) * 100;
+                const isPositive = change >= 0;
+                const isSelected = stock.id === selectedStockId;
+
+                const card = document.createElement('div');
+                card.onclick = () => selectStock(stock.id);
+                card.className = `p-2.5 rounded-xl border transition cursor-pointer flex items-center justify-between ${
+                    isSelected 
+                        ? 'bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-500/10' 
+                        : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-800/50 hover:border-slate-700'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-sm ${stock.color}">
+                            <i class="${stock.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs text-slate-100 flex items-center gap-1">
+                                ${stock.name}
+                            </div>
+                            <div class="text-[10px] text-slate-400">У вас: <span class="font-semibold text-indigo-300">${stock.owned} шт</span></div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-extrabold text-xs text-white">${stock.price.toFixed(2)} ₴</div>
+                        <div class="text-[10px] font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'} flex items-center justify-end gap-0.5">
+                            <i class="fa-solid fa-caret-${isPositive ? 'up' : 'down'}"></i>
+                            ${Math.abs(change).toFixed(2)}%
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateSelectedStockView() {
+            if (!currentWorld) return;
+            const stock = currentWorld.stocks.find(s => s.id === selectedStockId);
+            if (!stock) return;
+
+            document.getElementById('selectedStockName').innerText = stock.name;
+            document.getElementById('selectedStockSymbol').innerText = stock.symbol;
+            document.getElementById('selectedStockCategory').innerText = stock.desc;
+            document.getElementById('selectedStockIcon').className = `w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl ${stock.color}`;
+            document.getElementById('selectedStockIcon').innerHTML = `<i class="${stock.icon}"></i>`;
+
+            document.getElementById('selectedStockPrice').innerText = `${stock.price.toFixed(2)} ₴`;
+            document.getElementById('stockMarketCap').innerText = stock.cap || 'N/A';
+            document.getElementById('stockVolatility').innerText = `${(stock.volatility * 100).toFixed(0)}%`;
+
+            const avgBuy = stock.owned > 0 ? (stock.buyPriceSum / stock.owned).toFixed(2) : '0.00';
+            document.getElementById('stockAvgBuy').innerText = `${avgBuy} ₴`;
+
+            const prevPrice = stock.history.length > 1 ? stock.history[stock.history.length - 2] : stock.price;
+            const change = ((stock.price - prevPrice) / prevPrice) * 100;
+            const isPositive = change >= 0;
+
+            const changeEl = document.getElementById('selectedStockChange');
+            changeEl.className = `text-xs font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'} flex items-center justify-end gap-1`;
+            changeEl.innerHTML = `<i class="fa-solid fa-caret-${isPositive ? 'up' : 'down'}"></i> ${isPositive ? '+' : ''}${change.toFixed(2)}%`;
+
+            document.getElementById('userStockOwned').innerText = `В наявності: ${stock.owned} шт`;
+
+            updateTradeCost();
+            updateChart(stock);
+        }
+
+        function updateChart(stock) {
+            if (!stockChartInstance) return;
+
+            const dataPoints = stock.history.slice(-25);
+            const labels = dataPoints.map((_, idx) => `${idx + 1}с`);
+
+            stockChartInstance.data.labels = labels;
+            stockChartInstance.data.datasets[0].data = dataPoints;
+
+            const isUp = dataPoints.length > 1 && dataPoints[dataPoints.length - 1] >= dataPoints[dataPoints.length - 2];
+            stockChartInstance.data.datasets[0].borderColor = isUp ? '#10b981' : '#f43f5e';
+            stockChartInstance.data.datasets[0].backgroundColor = isUp ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)';
+
+            stockChartInstance.update();
+        }
+
+        function updateFinancialSummary() {
+            if (!currentWorld) return;
+
+            let portfolioVal = 0;
+            currentWorld.stocks.forEach(s => {
+                portfolioVal += s.owned * s.price;
+            });
+
+            const usdOwned = currentWorld.currencies?.USD?.owned || 0;
+            const usdRate = currentWorld.currencies?.USD?.rateUah || 41.50;
+            const usdValInUah = usdOwned * usdRate;
+
+            const netWorth = currentWorld.balance + currentWorld.bankDeposit + portfolioVal + usdValInUah;
+
+            document.getElementById('balanceDisplay').innerText = `${currentWorld.balance.toFixed(2)} ₴`;
+            document.getElementById('usdBalanceDisplay').innerText = `$ ${usdOwned.toFixed(2)}`;
+            document.getElementById('bankDisplay').innerText = `${currentWorld.bankDeposit.toFixed(2)} ₴`;
+            document.getElementById('portfolioValueDisplay').innerText = `${portfolioVal.toFixed(2)} ₴`;
+
+            checkVictoryCondition(usdOwned);
+            saveWorldsToStorage();
+        }
+
+        function checkVictoryCondition(usdOwned) {
+            if (!currentWorld || currentWorld.hasWon) return;
+
+            const goalAmount = 10000;
+            const progressPercent = Math.min(100, (usdOwned / goalAmount) * 100);
+
+            document.getElementById('usdGoalText').innerText = `$ ${usdOwned.toFixed(0)} / $ ${goalAmount.toLocaleString()}`;
+            document.getElementById('usdGoalProgressBar').style.width = `${progressPercent}%`;
+
+            if (usdOwned >= goalAmount) {
+                currentWorld.hasWon = true;
+                const totalWorth = currentWorld.balance + currentWorld.bankDeposit + currentWorld.stocks.reduce((acc, s) => acc + (s.owned * s.price), 0);
+                document.getElementById('finalNetWorth').innerText = `${totalWorth.toFixed(2)} ₴`;
+                showVictoryModal();
+            }
+        }
+
+        function bankDeposit(amount) {
+            if (!currentWorld) return;
+            if (currentWorld.balance >= amount) {
+                currentWorld.balance -= amount;
+                currentWorld.bankDeposit += amount;
+                showToast(`Поповнено депозит на ${amount} ₴`, "info");
+                updateFinancialSummary();
+            } else {
+                showToast("Недостатньо готівки!", "error");
+            }
+        }
+
+        function bankWithdraw(amount) {
+            if (!currentWorld) return;
+            if (currentWorld.bankDeposit >= amount) {
+                currentWorld.bankDeposit -= amount;
+                currentWorld.balance += amount;
+                showToast(`Знято ${amount} ₴ з депозиту`, "info");
+                updateFinancialSummary();
+            } else {
+                showToast("Недостатньо коштів у банку!", "error");
+            }
+        }
+
+        function selectStock(id) {
+            selectedStockId = id;
+            renderStocksList();
+            updateSelectedStockView();
+        }
+
+        function adjustTradeAmount(delta) {
+            const input = document.getElementById('tradeQuantity');
+            let val = parseInt(input.value) || 1;
+            val = Math.max(1, val + delta);
+            input.value = val;
+            updateTradeCost();
+        }
+
+        function updateTradeCost() {
+            const qty = parseInt(document.getElementById('tradeQuantity').value) || 1;
+            const stock = currentWorld ? currentWorld.stocks.find(s => s.id === selectedStockId) : null;
+            if (stock) {
+                const total = qty * stock.price;
+                document.getElementById('tradeTotalCost').innerText = `${total.toFixed(2)} ₴`;
+            }
+        }
+
+        function executeTrade(type) {
+            if (!currentWorld) return;
+            const qty = parseInt(document.getElementById('tradeQuantity').value) || 0;
+            const stock = currentWorld.stocks.find(s => s.id === selectedStockId);
+
+            if (!stock || qty <= 0) return;
+            const totalCost = qty * stock.price;
+
+            if (type === 'buy') {
+                if (currentWorld.balance >= totalCost) {
+                    currentWorld.balance -= totalCost;
+                    stock.owned += qty;
+                    stock.buyPriceSum += totalCost;
+                    showToast(`Куплено ${qty} шт ${stock.name}`, 'success');
+                } else {
+                    showToast(`Недостатньо готівки! Потрібно ${totalCost.toFixed(2)} ₴`, 'error');
+                }
+            } else if (type === 'sell') {
+                if (stock.owned >= qty) {
+                    const avgPrice = stock.buyPriceSum / stock.owned;
+                    currentWorld.balance += totalCost;
+                    stock.owned -= qty;
+                    stock.buyPriceSum -= (avgPrice * qty);
+                    showToast(`Продано ${qty} шт ${stock.name}`, 'info');
+                } else {
+                    showToast(`Недостатньо акцій ${stock.name}!`, 'error');
+                }
+            }
+
+            updateFinancialSummary();
+            renderStocksList();
+            updateSelectedStockView();
+        }
+
+        function simulateTick() {
+            if (isPaused || !currentWorld) return;
+
+            if (currentWorld.bankDeposit > 0) {
+                currentWorld.bankDeposit += currentWorld.bankDeposit * 0.005;
+            }
+
+            // Fluuctuate stock prices & currency exchange rates
+            if (!currentWorld.roomCode || isHost) {
+                currentWorld.stocks.forEach(stock => {
+                    const deltaPercent = (Math.random() - 0.48) * stock.volatility;
+                    let newPrice = stock.price * (1 + deltaPercent);
+                    newPrice = Math.max(0.50, newPrice);
+                    stock.price = parseFloat(newPrice.toFixed(2));
+                    stock.history.push(stock.price);
+                    if (stock.history.length > 30) stock.history.shift();
+                });
+
+                // Currency exchange rate subtle shifts
+                if (currentWorld.currencies) {
+                    Object.keys(currentWorld.currencies).forEach(code => {
+                        const curr = currentWorld.currencies[code];
+                        const delta = (Math.random() - 0.49) * 0.01;
+                        curr.rateUah = Math.max(1.0, curr.rateUah * (1 + delta));
+                    });
+                }
+
+                if (Math.random() < 0.25) {
+                    triggerNewsEvent();
+                }
+
+                if (isHost && activeConnections.length > 0) {
+                    broadcastToClients({
+                        type: 'TICK_UPDATE',
+                        stocks: currentWorld.stocks,
+                        currencies: currentWorld.currencies
+                    });
+                }
+            }
+
+            renderStocksList();
+            updateSelectedStockView();
+            renderCurrencyExchange();
+            updateFinancialSummary();
+        }
+
+        function triggerNewsEvent() {
+            const news = NEWS_POOL[Math.floor(Math.random() * NEWS_POOL.length)];
+            const stock = currentWorld.stocks.find(s => s.id === news.target);
+
+            if (stock) {
+                stock.price = parseFloat((stock.price * (1 + news.impact)).toFixed(2));
+                stock.history.push(stock.price);
+
+                displayNewsCard(stock.name, news.impact, news.text);
+            }
+        }
+
+        function displayNewsCard(stockName, impact, text) {
+            const feed = document.getElementById('newsFeed');
+            const isPositive = impact > 0;
+
+            const newsCard = document.createElement('div');
+            newsCard.className = `p-1.5 rounded-lg border text-[11px] ${
+                isPositive ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-200' : 'bg-rose-950/40 border-rose-800/60 text-rose-200'
+            }`;
+            newsCard.innerHTML = `
+                <div class="font-bold flex items-center justify-between">
+                    <span>${stockName}</span>
+                    <span>${isPositive ? '+' : ''}${(impact * 100).toFixed(0)}%</span>
+                </div>
+                <div class="opacity-90">${text}</div>
+            `;
+
+            feed.prepend(newsCard);
+            if (feed.children.length > 6) feed.removeChild(feed.lastChild);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pauseBtn');
+            btn.innerHTML = isPaused 
+                ? `<i class="fa-solid fa-play text-emerald-400"></i> Старт` 
+                : `<i class="fa-solid fa-pause text-amber-400"></i> Пауза`;
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('stockChart').getContext('2d');
+            stockChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Ціна (₴)',
+                        data: [],
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        fill: true,
+                        tension: 0.35,
+                        borderWidth: 2,
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 9 } } },
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', font: { size: 9 } } }
+                    }
+                }
+            });
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            let bgClass = "bg-slate-800 border-slate-700 text-white";
+            if (type === 'success') bgClass = "bg-emerald-950 border-emerald-600 text-emerald-100";
+            if (type === 'error') bgClass = "bg-rose-950 border-rose-600 text-rose-100";
+
+            toast.className = `p-2.5 rounded-xl border shadow-xl text-xs font-semibold flex items-center gap-2 pointer-events-auto ${bgClass}`;
+            toast.innerHTML = message;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        function showVictoryModal() {
+            const modal = document.getElementById('victoryModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeVictoryModal() {
+            const modal = document.getElementById('victoryModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        window.onload = function() {
+            initChart();
+            loadAccounts();
+            loadSavedWorlds();
+            setInterval(simulateTick, 1500);
+        };
+    </script>
+</body>
+</html>
